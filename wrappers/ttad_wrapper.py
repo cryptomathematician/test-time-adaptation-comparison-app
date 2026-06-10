@@ -1,4 +1,4 @@
-cimport sys
+import sys
 import os
 import time
 import torch
@@ -71,7 +71,7 @@ class TTADWrapper:
             os.chdir(TTAD_REPO_PATH)
             from arch_unet import UNet
 
-            checkpoint_path = os.path.join(TTAD_REPO_PATH, "checkpoints", "epoch_model_100.pth")
+            checkpoint_path = os.path.join(TTAD_REPO_PATH, "epoch_model_100.pth")
 
             self._model = UNet()
             if os.path.exists(checkpoint_path):

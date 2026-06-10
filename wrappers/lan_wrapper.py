@@ -63,12 +63,21 @@ class LANWrapper:
         old_cwd = os.getcwd()
         try:
             os.chdir(LAN_REPO_PATH)
+            # Add Restormer to path for basicsr imports
+            restormer_path = os.path.join(LAN_REPO_PATH, "Restormer")
+            if restormer_path not in sys.path:
+                sys.path.insert(0, restormer_path)
+            
             from model import get_model
             self._model = get_model()
             self._model.eval()
         finally:
             os.chdir(old_cwd)
-        print(f"[LAN] Model loaded on {self.device}")
+        
+        # Force move to CPU (PyTorch is CPU-only in this environment)
+        self._model = self._model.to("cpu")
+        self.device = torch.device("cpu")
+        print(f"[LAN] Model loaded on cpu")
 
     def run(self, image_path: str) -> Dict[str, Any]:
         self._load_model()
