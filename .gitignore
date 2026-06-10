@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+env/
+
+# Streamlit
+.streamlit/
+
+# Outputs
+outputs/
+
+# Uploads
+uploads/
+
+# Large model files
+*.pth
+*.pt
+*.ckpt
+
+# IDE
+.vscode/
+.idea/
+
+models/LAN/
+models/TTAD/
+models/2024-ICML-TAO/
