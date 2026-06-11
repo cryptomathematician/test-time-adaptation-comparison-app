@@ -560,61 +560,111 @@ if run_clicked and uploaded_file is not None:
             """, unsafe_allow_html=True)
 
 
-    # ── Comparison table (div-grid — avoids Streamlit's <table>/<tr>/<td> sanitizer) ──
+    # ── Comparison table ──────────────────────────────────────────────────
+    # Streamlit strips `style=""` attributes from arbitrary divs but never
+    # touches <style> tags, so we inject CSS classes in the same markdown call.
     st.markdown('<div class="section-rule" style="margin-top:2rem;"><span>Full comparison</span></div>', unsafe_allow_html=True)
-
-    # Column widths: method=2fr, psnr/ssim/lpips/runtime/memory=1fr each
-    GRID = "display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;align-items:center;"
-    CELL = "padding:.6rem 1rem;font-size:.82rem;font-family:'JetBrains Mono',monospace;border-bottom:1px solid rgba(0,0,0,.08);"
-    HEAD = "padding:.45rem 1rem;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;"
-
-    header_html = f"""
-    <div style="{GRID}background:#f4f4f5;border-bottom:1px solid rgba(0,0,0,.08);">
-      <div style="{HEAD}">Method</div>
-      <div style="{HEAD}">PSNR ↑</div>
-      <div style="{HEAD}">SSIM ↑</div>
-      <div style="{HEAD}">LPIPS ↓</div>
-      <div style="{HEAD}">Runtime</div>
-      <div style="{HEAD}">Memory</div>
-    </div>
-    """
 
     rows_html = ""
     for name in model_names:
         m       = results[name]
         is_best = name == best_name
-        row_bg  = "background:#f0f7ff;" if is_best else "background:#ffffff;"
-        bl      = "border-left:2.5px solid #2563eb;" if is_best else "border-left:2.5px solid transparent;"
+        row_cls = "cmp-row cmp-row--best" if is_best else "cmp-row"
 
-        best_badge = (
-            '&ensp;<span style="font-size:.65rem;font-weight:600;background:#fffbeb;'
-            'border:1px solid #fde68a;color:#b45309;border-radius:999px;'
-            'padding:.1rem .45rem;">best</span>'
-            if is_best else ""
-        )
+        best_badge = '<span class="cmp-best-badge">best</span>' if is_best else ""
 
         psnr_val  = fmt_metric(m["psnr"],  "{:.2f} dB")
         ssim_val  = fmt_metric(m["ssim"],  "{:.3f}")
         lpips_val = fmt_metric(m["lpips"], "{:.3f}")
 
-        psnr_c  = "color:#15803d;font-weight:500;" if m.get("psnr") and m["psnr"] >= 30 else "color:#0f0f10;"
-        lpips_c = "color:#b45309;" if m.get("lpips") else "color:#0f0f10;"
+        psnr_cls  = "cmp-cell cmp-psnr-good" if (m.get("psnr") and m["psnr"] >= 30) else "cmp-cell"
+        lpips_cls = "cmp-cell cmp-lpips-warn" if m.get("lpips") else "cmp-cell"
 
         rows_html += f"""
-        <div style="{GRID}{row_bg}{bl}">
-          <div style="padding:.65rem 1rem;font-size:.84rem;font-weight:500;color:#0f0f10;border-bottom:1px solid rgba(0,0,0,.08);">{name}{best_badge}</div>
-          <div style="{CELL}{psnr_c}">{psnr_val}</div>
-          <div style="{CELL}color:#0f0f10;">{ssim_val}</div>
-          <div style="{CELL}{lpips_c}">{lpips_val}</div>
-          <div style="{CELL}color:#52525b;">{m['runtime']:.2f} s</div>
-          <div style="{CELL}color:#52525b;">{m.get('memory_usage', 0):.0f} MB</div>
+        <div class="{row_cls}">
+          <div class="cmp-name">{name}&ensp;{best_badge}</div>
+          <div class="{psnr_cls}">{psnr_val}</div>
+          <div class="cmp-cell">{ssim_val}</div>
+          <div class="{lpips_cls}">{lpips_val}</div>
+          <div class="cmp-cell cmp-muted">{m['runtime']:.2f} s</div>
+          <div class="cmp-cell cmp-muted">{m.get('memory_usage', 0):.0f} MB</div>
         </div>
         """
 
     st.markdown(f"""
-    <div style="background:#ffffff;border:1px solid rgba(0,0,0,.08);
-        border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05);">
-      {header_html}
+    <style>
+    .cmp-wrap {{
+      background:#ffffff;
+      border:1px solid rgba(0,0,0,.08);
+      border-radius:14px;
+      overflow:hidden;
+      box-shadow:0 1px 2px rgba(0,0,0,.05);
+      font-family:'Inter',system-ui,sans-serif;
+    }}
+    .cmp-header, .cmp-row {{
+      display:grid;
+      grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;
+      align-items:center;
+    }}
+    .cmp-header {{
+      background:#f4f4f5;
+      border-bottom:1px solid rgba(0,0,0,.08);
+    }}
+    .cmp-header > div {{
+      padding:.45rem 1rem;
+      font-size:.67rem;
+      font-weight:600;
+      letter-spacing:.07em;
+      text-transform:uppercase;
+      color:#a1a1aa;
+    }}
+    .cmp-row {{
+      background:#ffffff;
+      border-left:2.5px solid transparent;
+    }}
+    .cmp-row--best {{
+      background:#f0f7ff !important;
+      border-left:2.5px solid #2563eb !important;
+    }}
+    .cmp-name {{
+      padding:.65rem 1rem;
+      font-size:.84rem;
+      font-weight:500;
+      color:#0f0f10;
+      border-bottom:1px solid rgba(0,0,0,.08);
+      display:flex;
+      align-items:center;
+      gap:.35rem;
+    }}
+    .cmp-cell {{
+      padding:.6rem 1rem;
+      font-size:.82rem;
+      font-family:'JetBrains Mono',monospace;
+      color:#0f0f10;
+      border-bottom:1px solid rgba(0,0,0,.08);
+    }}
+    .cmp-muted      {{ color:#52525b !important; }}
+    .cmp-psnr-good  {{ color:#15803d !important; font-weight:500; }}
+    .cmp-lpips-warn {{ color:#b45309 !important; }}
+    .cmp-best-badge {{
+      font-size:.65rem;
+      font-weight:600;
+      background:#fffbeb;
+      border:1px solid #fde68a;
+      color:#b45309;
+      border-radius:999px;
+      padding:.1rem .45rem;
+    }}
+    </style>
+    <div class="cmp-wrap">
+      <div class="cmp-header">
+        <div>Method</div>
+        <div>PSNR ↑</div>
+        <div>SSIM ↑</div>
+        <div>LPIPS ↓</div>
+        <div>Runtime</div>
+        <div>Memory</div>
+      </div>
       {rows_html}
     </div>
     """, unsafe_allow_html=True)
