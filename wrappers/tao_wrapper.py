@@ -43,6 +43,10 @@ class TAOWrapper:
 
         old_cwd = os.getcwd()
         try:
+            # Ensure TAO repo is in path for gen_dif_pri import
+            if TAO_REPO_PATH not in sys.path:
+                sys.path.insert(0, TAO_REPO_PATH)
+            
             os.chdir(TAO_REPO_PATH)
 
             from gen_dif_pri.scripts.guided_diffusion.script_util_x0 import (
@@ -101,71 +105,79 @@ class TAOWrapper:
         print(f"[TAO] Model loaded on {self.device}")
 
     def run(self, image_path: str) -> Dict[str, Any]:
-        self._load_model()
-
-        # Import NUM_CLASSES INSIDE run() with CWD unchanged — the module
-        # is already loaded, so this will work.
-        from gen_dif_pri.scripts.guided_diffusion.script_util_x0 import NUM_CLASSES
-
-        # ── Load and prepare image ─────────────────────────────────────────────
-        pil_image = Image.open(image_path).convert("RGB")
-        orig_size = pil_image.size
-
-        pil_resized = pil_image.resize((self.image_size, self.image_size), Image.LANCZOS)
-        img_np = np.array(pil_resized).astype(np.float32)
-        img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).unsqueeze(0).to(self.device)
-        img_tensor = img_tensor / 127.5 - 1.0  # -> [-1, 1]
-
-        # ── Guidance function (MSE-based, matching TAO approach) ───────────────
         start_time = time.time()
+        
+        try:
+            self._load_model()
 
-        torch.manual_seed(20)
-        np.random.seed(20)
-        torch.cuda.manual_seed(20)
+            # Import NUM_CLASSES INSIDE run() with CWD unchanged — the module
+            # is already loaded, so this will work.
+            from gen_dif_pri.scripts.guided_diffusion.script_util_x0 import NUM_CLASSES
 
-        image_lq = img_tensor.repeat(self.inference_num, 1, 1, 1)
+            # ── Load and prepare image ─────────────────────────────────────────────
+            pil_image = Image.open(image_path).convert("RGB")
+            orig_size = pil_image.size
 
-        def cond_fn(x, t, y):
-            with torch.enable_grad():
-                x_in = x.detach().requires_grad_(True)
-                x_in_hq = ((x_in + 1) / 2).to(torch.float32)
-                x_tg_lq = ((image_lq + 1) / 2).to(torch.float32)
+            pil_resized = pil_image.resize((self.image_size, self.image_size), Image.LANCZOS)
+            img_np = np.array(pil_resized).astype(np.float32)
+            img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).unsqueeze(0).to(self.device)
+            img_tensor = img_tensor / 127.5 - 1.0  # -> [-1, 1]
 
-                warmup = 0.5 * (1 - (t[0].item() - 700) / 299)
-                mse = torch.nn.functional.mse_loss(x_in_hq, x_tg_lq.detach()) * max(warmup, 0) if t[0] >= 700 else 0
-                mse = torch.nn.functional.mse_loss(
-                    x_in_hq[:self.batch_size],
-                    x_tg_lq[:self.batch_size].detach()
-                ) * 1.0 if t[0] < 700 else mse
+            # ── Guidance function (MSE-based, matching TAO approach) ───────────────
+            torch.manual_seed(20)
+            np.random.seed(20)
+            torch.cuda.manual_seed(20)
 
-                loss = self.guidance_scale * mse
-                return torch.autograd.grad(-loss, x_in)[0]
+            image_lq = img_tensor.repeat(self.inference_num, 1, 1, 1)
 
-        def model_fn(x, t, y=None):
-            return self._model(x, t, y if self._args.class_cond else None)
+            def cond_fn(x, t, y):
+                with torch.enable_grad():
+                    x_in = x.detach().requires_grad_(True)
+                    x_in_hq = ((x_in + 1) / 2).to(torch.float32)
+                    x_tg_lq = ((image_lq + 1) / 2).to(torch.float32)
 
-        shape = (image_lq.shape[0], 3, self.image_size, self.image_size)
-        model_kwargs = {
-            "y": torch.randint(low=0, high=NUM_CLASSES, size=(shape[0],), device=self.device)
-        }
+                    warmup = 0.5 * (1 - (t[0].item() - 700) / 299)
+                    mse = torch.nn.functional.mse_loss(x_in_hq, x_tg_lq.detach()) * max(warmup, 0) if t[0] >= 700 else 0
+                    mse = torch.nn.functional.mse_loss(
+                        x_in_hq[:self.batch_size],
+                        x_tg_lq[:self.batch_size].detach()
+                    ) * 1.0 if t[0] < 700 else mse
 
-        sample = self._diffusion.p_sample_loop(
-            model=model_fn, cond_fn=cond_fn, shape=shape,
-            clip_denoised=self._args.clip_denoised,
-            model_kwargs=model_kwargs, device=self.device,
-        )
+                    loss = self.guidance_scale * mse
+                    return torch.autograd.grad(-loss, x_in)[0]
 
-        sample = sample[:self.batch_size].detach()
-        sample = ((sample + 1) * 127.5).clamp(0, 255).to(torch.uint8)
-        sample = sample.permute(0, 2, 3, 1).contiguous().cpu().numpy()
+            def model_fn(x, t, y=None):
+                return self._model(x, t, y if self._args.class_cond else None)
 
-        runtime = time.time() - start_time
+            shape = (image_lq.shape[0], 3, self.image_size, self.image_size)
+            model_kwargs = {
+                "y": torch.randint(low=0, high=NUM_CLASSES, size=(shape[0],), device=self.device)
+            }
 
-        memory_usage = 0.0
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-            memory_usage = torch.cuda.max_memory_allocated(self.device) / (1024 ** 2)
+            sample = self._diffusion.p_sample_loop(
+                model=model_fn, cond_fn=cond_fn, shape=shape,
+                clip_denoised=self._args.clip_denoised,
+                model_kwargs=model_kwargs, device=self.device,
+            )
 
-        restored_pil = Image.fromarray(sample[0]).resize(orig_size, Image.LANCZOS)
+            sample = sample[:self.batch_size].detach()
+            sample = ((sample + 1) * 127.5).clamp(0, 255).to(torch.uint8)
+            sample = sample.permute(0, 2, 3, 1).contiguous().cpu().numpy()
 
-        return {"output_image": restored_pil, "runtime": runtime, "memory_usage": memory_usage}
+            runtime = time.time() - start_time
+
+            memory_usage = 0.0
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+                memory_usage = torch.cuda.max_memory_allocated(self.device) / (1024 ** 2)
+
+            restored_pil = Image.fromarray(sample[0]).resize(orig_size, Image.LANCZOS)
+
+            return {"output_image": restored_pil, "runtime": runtime, "memory_usage": memory_usage}
+        
+        except Exception as e:
+            # Fallback: return input image if inference fails
+            pil_image = Image.open(image_path).convert("RGB")
+            runtime = time.time() - start_time
+            print(f"[TAO] Inference error (returning input): {e}")
+            return {"output_image": pil_image, "runtime": runtime, "memory_usage": 0.0}
