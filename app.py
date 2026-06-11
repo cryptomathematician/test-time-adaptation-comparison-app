@@ -43,7 +43,6 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* ── Tokens ── */
 :root {
   --bg:        #fafafa;
   --surface:   #ffffff;
@@ -70,51 +69,46 @@ st.markdown("""
   --shadow:    0 2px 8px rgba(0,0,0,.07);
 }
 
-/* ── Reset chrome ── */
 html, body, [class*="css"]  { font-family: 'Inter', system-ui, sans-serif; }
 #MainMenu, footer, header   { visibility: hidden; }
 .block-container            { padding-top: 2.5rem !important; padding-bottom: 4rem !important; max-width: 1200px; }
-.stApp                      { background: var(--bg) !important; }
-[data-testid="stAppViewContainer"] { background: var(--bg) !important; }
+.stApp                      { background: #fafafa !important; }
+[data-testid="stAppViewContainer"] { background: #fafafa !important; }
 [data-testid="stHeader"]    { background: transparent !important; }
-hr                          { border-color: var(--border) !important; }
+hr                          { border-color: rgba(0,0,0,.08) !important; }
 
-/* ── File uploader ── */
 .stFileUploader > div > div {
-  background: var(--surface) !important;
-  border: 1.5px dashed var(--border-md) !important;
-  border-radius: var(--radius) !important;
+  background: #ffffff !important;
+  border: 1.5px dashed rgba(0,0,0,.12) !important;
+  border-radius: 10px !important;
   transition: border-color .15s !important;
 }
-.stFileUploader > div > div:hover { border-color: var(--blue) !important; }
+.stFileUploader > div > div:hover { border-color: #2563eb !important; }
 
-/* ── Button ── */
 .stButton > button {
-  background: var(--blue) !important;
+  background: #2563eb !important;
   color: #fff !important;
   border: none !important;
-  border-radius: var(--radius-sm) !important;
+  border-radius: 6px !important;
   font-weight: 500 !important;
   font-size: .9rem !important;
   padding: .55rem 1.4rem !important;
   letter-spacing: .01em !important;
-  box-shadow: var(--shadow-sm) !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05) !important;
   transition: opacity .15s, transform .1s !important;
 }
 .stButton > button:hover  { opacity: .88 !important; }
 .stButton > button:active { transform: scale(.98) !important; }
-.stButton > button:disabled { background: var(--border-md) !important; color: var(--text-3) !important; }
+.stButton > button:disabled { background: rgba(0,0,0,.12) !important; color: #a1a1aa !important; }
 
-/* ── Spinner ── */
-.stSpinner > div { color: var(--blue) !important; }
+.stSpinner > div { color: #2563eb !important; }
 
-/* ── Utility classes ── */
 .label {
   font-size: .7rem;
   font-weight: 600;
   letter-spacing: .07em;
   text-transform: uppercase;
-  color: var(--text-3);
+  color: #a1a1aa;
   margin-bottom: .35rem;
 }
 .section-rule {
@@ -128,14 +122,14 @@ hr                          { border-color: var(--border) !important; }
   font-weight: 600;
   letter-spacing: .07em;
   text-transform: uppercase;
-  color: var(--text-3);
+  color: #a1a1aa;
   white-space: nowrap;
 }
 .section-rule::after {
   content: "";
   flex: 1;
   height: 1px;
-  background: var(--border);
+  background: rgba(0,0,0,.08);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -162,9 +156,9 @@ def download_link(img: Image.Image, filename: str, label: str) -> str:
     b64 = base64.b64encode(buf.getvalue()).decode()
     return (
         f'<a href="data:image/png;base64,{b64}" download="{filename}" style="text-decoration:none;display:block;">'
-        f'<button style="width:100%;background:transparent;border:1px solid var(--border-md);'
-        f'border-radius:var(--radius-sm);padding:.38rem .8rem;font-size:.78rem;font-weight:500;'
-        f'color:var(--text-2);cursor:pointer;transition:background .15s;">'
+        f'<button style="width:100%;background:transparent;border:1px solid rgba(0,0,0,.12);'
+        f'border-radius:6px;padding:.38rem .8rem;font-size:.78rem;font-weight:500;'
+        f'color:#52525b;cursor:pointer;transition:background .15s;">'
         f'↓ {label}</button></a>'
     )
 
@@ -187,6 +181,85 @@ def rank_methods(results: Dict[str, dict]) -> str:
              d.get("runtime", float("inf")),
         )
     return sorted(results.items(), key=key)[0][0]
+
+
+# ─── Progress HTML helpers (all literal colours — no CSS vars) ──────────────────
+
+def _step_html(name: str, state: str) -> str:
+    """
+    state: 'done' | 'running' | 'queued'
+    Returns one progress-row div with fully-inlined colours.
+    """
+    if state == "done":
+        icon, color, icon_bg, icon_bd, weight, pill_label = (
+            "✓", "#16a34a", "#f0fdf4", "#bbf7d0", "500", "Done"
+        )
+    elif state == "running":
+        icon, color, icon_bg, icon_bd, weight, pill_label = (
+            "…", "#2563eb", "#eff6ff", "#bfdbfe", "600", "Running"
+        )
+    else:
+        icon, color, icon_bg, icon_bd, weight, pill_label = (
+            "·", "#a1a1aa", "#f4f4f5", "rgba(0,0,0,.08)", "400", "Queued"
+        )
+
+    return f"""
+    <div style="display:flex;align-items:center;gap:.85rem;padding:.6rem .9rem;
+        background:#ffffff;border:1px solid rgba(0,0,0,.08);
+        border-radius:6px;margin-bottom:.4rem;">
+      <span style="width:22px;height:22px;border-radius:50%;background:{icon_bg};
+          border:1px solid {icon_bd};display:flex;align-items:center;justify-content:center;
+          font-size:.78rem;font-weight:600;color:{color};flex-shrink:0;">{icon}</span>
+      <span style="font-size:.86rem;font-weight:{weight};color:#0f0f10;flex:1;">{name}</span>
+      <span style="font-size:.72rem;font-weight:500;color:{color};background:{icon_bg};
+          border:1px solid {icon_bd};border-radius:999px;padding:.15rem .6rem;">{pill_label}</span>
+    </div>
+    """
+
+
+def render_progress(placeholder, model_names: list, current_index: int, done: bool = False) -> None:
+    steps_html = ""
+    for j, n in enumerate(model_names):
+        if done or j < current_index:
+            state = "done"
+        elif j == current_index:
+            state = "running"
+        else:
+            state = "queued"
+        steps_html += _step_html(n, state)
+
+    if done:
+        pct        = 100
+        bar_color  = "#16a34a"
+        bar_bg     = "#f0fdf4"
+        border_col = "#bbf7d0"
+        header_txt = "All models complete"
+        header_col = "#16a34a"
+        count_txt  = f"{len(model_names)}/{len(model_names)}"
+    else:
+        pct        = int(current_index / len(model_names) * 100)
+        bar_color  = "#2563eb"
+        bar_bg     = "#f4f4f5"
+        border_col = "rgba(0,0,0,.08)"
+        header_txt = "Inference in progress"
+        header_col = "#52525b"
+        count_txt  = f"{current_index}/{len(model_names)}"
+
+    placeholder.markdown(f"""
+    <div style="background:#ffffff;border:1px solid {border_col};
+        border-radius:14px;padding:1.2rem 1.4rem;margin-bottom:1rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;">
+        <span style="font-size:.8rem;font-weight:500;color:{header_col};">{header_txt}</span>
+        <span style="font-size:.75rem;font-family:'JetBrains Mono',monospace;color:#a1a1aa;">
+          {count_txt}
+        </span>
+      </div>
+      <div style="height:3px;background:{bar_bg};border-radius:999px;margin-bottom:1rem;overflow:hidden;">
+        <div style="height:100%;width:{pct}%;background:{bar_color};border-radius:999px;transition:width .3s;"></div>
+      </div>
+      {steps_html}
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -249,27 +322,27 @@ with prev_col:
         w, h = image.size
         b64 = pil_to_b64(image)
         st.markdown(f"""
-        <div style="background:var(--surface);border:1px solid var(--border);
-            border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm);">
-          <div style="padding:.5rem .85rem;border-bottom:1px solid var(--border);
+        <div style="background:#ffffff;border:1px solid rgba(0,0,0,.08);
+            border-radius:10px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05);">
+          <div style="padding:.5rem .85rem;border-bottom:1px solid rgba(0,0,0,.08);
               display:flex;align-items:center;justify-content:space-between;">
-            <span style="font-size:.75rem;font-weight:500;color:var(--text-2);">Preview</span>
-            <span style="font-size:.7rem;color:var(--text-3);font-family:'JetBrains Mono',monospace;">
+            <span style="font-size:.75rem;font-weight:500;color:#52525b;">Preview</span>
+            <span style="font-size:.7rem;color:#a1a1aa;font-family:'JetBrains Mono',monospace;">
               {w}&thinsp;×&thinsp;{h}
             </span>
           </div>
           <div style="padding:.6rem;">
             <img src="data:image/png;base64,{b64}"
-              style="width:100%;border-radius:var(--radius-sm);display:block;" />
+              style="width:100%;border-radius:6px;display:block;" />
           </div>
         </div>
         """, unsafe_allow_html=True)
     else:
         st.markdown("""
-        <div style="background:var(--surface-2);border:1px solid var(--border);
-            border-radius:var(--radius);min-height:120px;display:flex;
+        <div style="background:#f4f4f5;border:1px solid rgba(0,0,0,.08);
+            border-radius:10px;min-height:120px;display:flex;
             align-items:center;justify-content:center;">
-          <span style="font-size:.82rem;color:var(--text-3);">No image selected</span>
+          <span style="font-size:.82rem;color:#a1a1aa;">No image selected</span>
         </div>
         """, unsafe_allow_html=True)
 
@@ -292,7 +365,7 @@ with btn_col:
 with hint_col:
     if uploaded_file is None:
         st.markdown(
-            '<p style="font-size:.8rem;color:var(--text-3);margin:.55rem 0 0;">Upload a degraded image to begin.</p>',
+            '<p style="font-size:.8rem;color:#a1a1aa;margin:.55rem 0 0;">Upload a degraded image to begin.</p>',
             unsafe_allow_html=True,
         )
 
@@ -320,64 +393,8 @@ if run_clicked and uploaded_file is not None:
 
     for i, name in enumerate(model_names):
 
-        # Render honest per-step progress
-        steps_html = ""
-        for j, n in enumerate(model_names):
-            if j < i:
-                icon   = "✓"
-                color  = "var(--green)"
-                weight = "500"
-                bg     = "var(--green-bg)"
-                bd     = "var(--green-bd)"
-                label  = "Done"
-            elif j == i:
-                icon   = "…"
-                color  = "var(--blue)"
-                weight = "600"
-                bg     = "var(--blue-bg)"
-                bd     = "var(--blue-bd)"
-                label  = "Running"
-            else:
-                icon   = "·"
-                color  = "var(--text-3)"
-                weight = "400"
-                bg     = "var(--surface-2)"
-                bd     = "var(--border)"
-                label  = "Queued"
+        render_progress(progress_ph, model_names, current_index=i)
 
-            steps_html += f"""
-            <div style="display:flex;align-items:center;gap:.85rem;padding:.6rem .9rem;
-                background:var(--surface);border:1px solid var(--border);
-                border-radius:var(--radius-sm);margin-bottom:.4rem;">
-              <span style="width:22px;height:22px;border-radius:50%;background:{bg};
-                  border:1px solid {bd};display:flex;align-items:center;justify-content:center;
-                  font-size:.78rem;font-weight:600;color:{color};flex-shrink:0;">{icon}</span>
-              <span style="font-size:.86rem;font-weight:{weight};color:var(--text);flex:1;">{n}</span>
-              <span style="font-size:.72rem;font-weight:500;color:{color};background:{bg};
-                  border:1px solid {bd};border-radius:999px;padding:.15rem .6rem;">{label}</span>
-            </div>
-            """
-
-        pct = int(i / len(model_names) * 100)
-        progress_ph.markdown(f"""
-        <div style="background:var(--surface);border:1px solid var(--border);
-            border-radius:var(--radius-lg);padding:1.2rem 1.4rem;margin-bottom:1rem;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;">
-            <span style="font-size:.8rem;font-weight:500;color:var(--text-2);">
-              Inference in progress
-            </span>
-            <span style="font-size:.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-3);">
-              {i}/{len(model_names)}
-            </span>
-          </div>
-          <div style="height:3px;background:var(--surface-2);border-radius:999px;margin-bottom:1rem;overflow:hidden;">
-            <div style="height:100%;width:{pct}%;background:var(--blue);border-radius:999px;transition:width .3s;"></div>
-          </div>
-          {steps_html}
-        </div>
-        """, unsafe_allow_html=True)
-
-        # ── Run wrapper ───────────────────────────────────────────────────
         wrapper = wrappers[name]
         try:
             output       = wrapper.run(str(saved_path))
@@ -413,36 +430,7 @@ if run_clicked and uploaded_file is not None:
             }
 
     # ── Done state ────────────────────────────────────────────────────────
-    done_steps = ""
-    for name in model_names:
-        done_steps += f"""
-        <div style="display:flex;align-items:center;gap:.85rem;padding:.6rem .9rem;
-            background:var(--surface);border:1px solid var(--border);
-            border-radius:var(--radius-sm);margin-bottom:.4rem;">
-          <span style="width:22px;height:22px;border-radius:50%;
-              background:var(--green-bg);border:1px solid var(--green-bd);
-              display:flex;align-items:center;justify-content:center;
-              font-size:.78rem;font-weight:600;color:var(--green);flex-shrink:0;">✓</span>
-          <span style="font-size:.86rem;font-weight:500;color:var(--text);flex:1;">{name}</span>
-          <span style="font-size:.72rem;font-weight:500;color:var(--green);
-              background:var(--green-bg);border:1px solid var(--green-bd);
-              border-radius:999px;padding:.15rem .6rem;">Done</span>
-        </div>
-        """
-
-    progress_ph.markdown(f"""
-    <div style="background:var(--surface);border:1px solid var(--green-bd);
-        border-radius:var(--radius-lg);padding:1.2rem 1.4rem;margin-bottom:1rem;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;">
-        <span style="font-size:.8rem;font-weight:500;color:var(--green);">All models complete</span>
-        <span style="font-size:.75rem;font-family:'JetBrains Mono',monospace;color:var(--text-3);">3/3</span>
-      </div>
-      <div style="height:3px;background:var(--green-bg);border-radius:999px;margin-bottom:1rem;overflow:hidden;">
-        <div style="height:100%;width:100%;background:var(--green);border-radius:999px;"></div>
-      </div>
-      {done_steps}
-    </div>
-    """, unsafe_allow_html=True)
+    render_progress(progress_ph, model_names, current_index=len(model_names), done=True)
 
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -453,7 +441,6 @@ if run_clicked and uploaded_file is not None:
 
     st.markdown('<div class="section-rule"><span>Results</span></div>', unsafe_allow_html=True)
 
-    # Best method callout
     if best_metrics.get("psnr") is not None:
         rank_detail = (
             f"PSNR {best_metrics['psnr']:.2f} dB · "
@@ -464,10 +451,10 @@ if run_clicked and uploaded_file is not None:
         rank_detail = f"Fastest runtime — {best_metrics.get('runtime', 0):.2f} s"
 
     st.markdown(f"""
-    <div style="background:var(--blue-bg);border:1px solid var(--blue-bd);
-        border-radius:var(--radius);padding:1rem 1.3rem;margin-bottom:1.5rem;
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;
+        border-radius:10px;padding:1rem 1.3rem;margin-bottom:1.5rem;
         display:flex;align-items:center;gap:1rem;">
-      <div style="width:36px;height:36px;background:#2563eb;border-radius:var(--radius-sm);
+      <div style="width:36px;height:36px;background:#2563eb;border-radius:6px;
           display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.1rem;">🏆</div>
       <div>
         <p style="font-size:.7rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
@@ -490,15 +477,14 @@ if run_clicked and uploaded_file is not None:
         fastest_n   = min(model_names, key=lambda k: results[k]["runtime"])
 
         def metric_tile(label, value, sub, highlight=False):
-            border = "1px solid var(--blue-bd)" if highlight else "1px solid var(--border)"
-            bg     = "var(--blue-bg)" if highlight else "var(--surface-2)"
-            sub_c  = "#3b82f6" if highlight else "var(--text-3)"
+            border = "1px solid #bfdbfe" if highlight else "1px solid rgba(0,0,0,.08)"
+            bg     = "#eff6ff"           if highlight else "#f4f4f5"
+            sub_c  = "#3b82f6"           if highlight else "#a1a1aa"
             return f"""
-            <div style="background:{bg};border:{border};border-radius:var(--radius);
-                padding:.9rem 1rem;">
+            <div style="background:{bg};border:{border};border-radius:10px;padding:.9rem 1rem;">
               <p style="font-size:.68rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
-                 color:var(--text-3);margin:0 0 .4rem;">{label}</p>
-              <p style="font-size:1.4rem;font-weight:600;color:var(--text);margin:0 0 .15rem;
+                 color:#a1a1aa;margin:0 0 .4rem;">{label}</p>
+              <p style="font-size:1.4rem;font-weight:600;color:#0f0f10;margin:0 0 .15rem;
                  font-family:'JetBrains Mono',monospace;line-height:1;">{value}</p>
               <p style="font-size:.72rem;color:{sub_c};margin:0;">{sub}</p>
             </div>
@@ -528,45 +514,43 @@ if run_clicked and uploaded_file is not None:
         b64_img = pil_to_b64(m["image"])
         dl      = download_link(m["image"], f"{name}_restored.png", f"Save {name} output")
 
-        # Badge
         if is_best:
-            badge = '<span style="font-size:.68rem;font-weight:600;background:var(--amber-bg);border:1px solid var(--amber-bd);color:var(--amber);border-radius:999px;padding:.15rem .55rem;">★ Best</span>'
+            badge = '<span style="font-size:.68rem;font-weight:600;background:#fffbeb;border:1px solid #fde68a;color:#b45309;border-radius:999px;padding:.15rem .55rem;">★ Best</span>'
         else:
-            badge = '<span style="font-size:.68rem;font-weight:600;background:var(--green-bg);border:1px solid var(--green-bd);color:var(--green);border-radius:999px;padding:.15rem .55rem;">Done</span>'
+            badge = '<span style="font-size:.68rem;font-weight:600;background:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;border-radius:999px;padding:.15rem .55rem;">Done</span>'
 
-        # Metrics row
         metrics_row = ""
         if m.get("psnr") is not None:
-            metrics_row += f'<span style="font-size:.75rem;color:var(--text-2);font-family:\'JetBrains Mono\',monospace;">PSNR <b style="color:var(--text)">{m["psnr"]:.2f}</b></span>'
+            metrics_row += f'<span style="font-size:.75rem;color:#52525b;font-family:\'JetBrains Mono\',monospace;">PSNR <b style="color:#0f0f10">{m["psnr"]:.2f}</b></span>'
         if m.get("ssim") is not None:
-            metrics_row += f'&nbsp;&nbsp;<span style="font-size:.75rem;color:var(--text-2);font-family:\'JetBrains Mono\',monospace;">SSIM <b style="color:var(--text)">{m["ssim"]:.3f}</b></span>'
+            metrics_row += f'&nbsp;&nbsp;<span style="font-size:.75rem;color:#52525b;font-family:\'JetBrains Mono\',monospace;">SSIM <b style="color:#0f0f10">{m["ssim"]:.3f}</b></span>'
         if m.get("lpips") is not None:
-            metrics_row += f'&nbsp;&nbsp;<span style="font-size:.75rem;color:var(--text-2);font-family:\'JetBrains Mono\',monospace;">LPIPS <b style="color:var(--text)">{m["lpips"]:.3f}</b></span>'
+            metrics_row += f'&nbsp;&nbsp;<span style="font-size:.75rem;color:#52525b;font-family:\'JetBrains Mono\',monospace;">LPIPS <b style="color:#0f0f10">{m["lpips"]:.3f}</b></span>'
 
         meta_row = (
-            f'<span style="font-size:.72rem;color:var(--text-3);">'
+            f'<span style="font-size:.72rem;color:#a1a1aa;">'
             f'{m["runtime"]:.2f} s · {m.get("memory_usage",0):.0f} MB</span>'
         )
 
-        left_accent = "border-left:3px solid var(--blue);" if is_best else ""
+        left_accent = "border-left:3px solid #2563eb;" if is_best else ""
 
         with col:
             st.markdown(f"""
-            <div style="background:var(--surface);border:1px solid var(--border);
-                border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm);{left_accent}">
-              <div style="padding:.65rem .9rem;border-bottom:1px solid var(--border);
+            <div style="background:#ffffff;border:1px solid rgba(0,0,0,.08);
+                border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05);{left_accent}">
+              <div style="padding:.65rem .9rem;border-bottom:1px solid rgba(0,0,0,.08);
                   display:flex;align-items:center;justify-content:space-between;">
-                <span style="font-size:.88rem;font-weight:600;color:var(--text);">{name}</span>
+                <span style="font-size:.88rem;font-weight:600;color:#0f0f10;">{name}</span>
                 {badge}
               </div>
               <div style="padding:.65rem .65rem .5rem;">
                 <img src="data:image/png;base64,{b64_img}"
-                  style="width:100%;border-radius:var(--radius-sm);display:block;" />
+                  style="width:100%;border-radius:6px;display:block;" />
               </div>
               <div style="padding:.5rem .9rem .3rem;display:flex;flex-wrap:wrap;gap:.3rem .6rem;">
                 {metrics_row if metrics_row else meta_row}
               </div>
-              <div style="padding:.15rem .7rem .7rem;">
+              <div style="padding:.15rem .9rem .3rem;">
                 {meta_row if metrics_row else ""}
               </div>
               <div style="padding:0 .7rem .75rem;">
@@ -584,11 +568,11 @@ if run_clicked and uploaded_file is not None:
         m       = results[name]
         is_best = name == best_name
         row_bg  = "background:#f0f7ff;" if is_best else ""
-        bl      = "border-left:2.5px solid var(--blue);" if is_best else "border-left:2.5px solid transparent;"
+        bl      = "border-left:2.5px solid #2563eb;" if is_best else "border-left:2.5px solid transparent;"
 
         best_badge = (
-            '&ensp;<span style="font-size:.65rem;font-weight:600;background:var(--amber-bg);'
-            'border:1px solid var(--amber-bd);color:var(--amber);border-radius:999px;'
+            '&ensp;<span style="font-size:.65rem;font-weight:600;background:#fffbeb;'
+            'border:1px solid #fde68a;color:#b45309;border-radius:999px;'
             'padding:.1rem .45rem;">best</span>'
             if is_best else ""
         )
@@ -602,45 +586,45 @@ if run_clicked and uploaded_file is not None:
 
         rows_html += f"""
         <tr style="{row_bg}{bl}">
-          <td style="padding:.65rem 1rem;font-size:.84rem;font-weight:500;color:var(--text);
-              border-bottom:1px solid var(--border);">{name}{best_badge}</td>
+          <td style="padding:.65rem 1rem;font-size:.84rem;font-weight:500;color:#0f0f10;
+              border-bottom:1px solid rgba(0,0,0,.08);">{name}{best_badge}</td>
           <td style="padding:.65rem 1rem;font-size:.82rem;font-family:'JetBrains Mono',monospace;
-              {psnr_c}border-bottom:1px solid var(--border);">{psnr_val}</td>
+              {psnr_c}border-bottom:1px solid rgba(0,0,0,.08);">{psnr_val}</td>
           <td style="padding:.65rem 1rem;font-size:.82rem;font-family:'JetBrains Mono',monospace;
-              border-bottom:1px solid var(--border);">{ssim_val}</td>
+              border-bottom:1px solid rgba(0,0,0,.08);">{ssim_val}</td>
           <td style="padding:.65rem 1rem;font-size:.82rem;font-family:'JetBrains Mono',monospace;
-              {lpips_c}border-bottom:1px solid var(--border);">{lpips_val}</td>
+              {lpips_c}border-bottom:1px solid rgba(0,0,0,.08);">{lpips_val}</td>
           <td style="padding:.65rem 1rem;font-size:.82rem;font-family:'JetBrains Mono',monospace;
-              color:var(--text-2);border-bottom:1px solid var(--border);">{m['runtime']:.2f} s</td>
+              color:#52525b;border-bottom:1px solid rgba(0,0,0,.08);">{m['runtime']:.2f} s</td>
           <td style="padding:.65rem 1rem;font-size:.82rem;font-family:'JetBrains Mono',monospace;
-              color:var(--text-2);border-bottom:1px solid var(--border);">{m.get('memory_usage',0):.0f} MB</td>
+              color:#52525b;border-bottom:1px solid rgba(0,0,0,.08);">{m.get('memory_usage',0):.0f} MB</td>
         </tr>
         """
 
     st.markdown(f"""
-    <div style="background:var(--surface);border:1px solid var(--border);
-        border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm);">
+    <div style="background:#ffffff;border:1px solid rgba(0,0,0,.08);
+        border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05);">
       <table style="width:100%;border-collapse:collapse;">
         <thead>
-          <tr style="background:var(--surface-2);">
+          <tr style="background:#f4f4f5;">
             <th style="padding:.5rem 1rem;text-align:left;font-size:.68rem;font-weight:600;
-                letter-spacing:.07em;text-transform:uppercase;color:var(--text-3);
-                border-bottom:1px solid var(--border);">Method</th>
+                letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;
+                border-bottom:1px solid rgba(0,0,0,.08);">Method</th>
             <th style="padding:.5rem 1rem;text-align:left;font-size:.68rem;font-weight:600;
-                letter-spacing:.07em;text-transform:uppercase;color:var(--text-3);
-                border-bottom:1px solid var(--border);">PSNR ↑</th>
+                letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;
+                border-bottom:1px solid rgba(0,0,0,.08);">PSNR ↑</th>
             <th style="padding:.5rem 1rem;text-align:left;font-size:.68rem;font-weight:600;
-                letter-spacing:.07em;text-transform:uppercase;color:var(--text-3);
-                border-bottom:1px solid var(--border);">SSIM ↑</th>
+                letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;
+                border-bottom:1px solid rgba(0,0,0,.08);">SSIM ↑</th>
             <th style="padding:.5rem 1rem;text-align:left;font-size:.68rem;font-weight:600;
-                letter-spacing:.07em;text-transform:uppercase;color:var(--text-3);
-                border-bottom:1px solid var(--border);">LPIPS ↓</th>
+                letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;
+                border-bottom:1px solid rgba(0,0,0,.08);">LPIPS ↓</th>
             <th style="padding:.5rem 1rem;text-align:left;font-size:.68rem;font-weight:600;
-                letter-spacing:.07em;text-transform:uppercase;color:var(--text-3);
-                border-bottom:1px solid var(--border);">Runtime</th>
+                letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;
+                border-bottom:1px solid rgba(0,0,0,.08);">Runtime</th>
             <th style="padding:.5rem 1rem;text-align:left;font-size:.68rem;font-weight:600;
-                letter-spacing:.07em;text-transform:uppercase;color:var(--text-3);
-                border-bottom:1px solid var(--border);">Memory</th>
+                letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;
+                border-bottom:1px solid rgba(0,0,0,.08);">Memory</th>
           </tr>
         </thead>
         <tbody>
@@ -665,13 +649,13 @@ if run_clicked and uploaded_file is not None:
                 for n, g in gains.items()
             )
             st.markdown(f"""
-            <div style="background:var(--surface-2);border:1px solid var(--border);
-                border-left:3px solid var(--blue);border-radius:var(--radius);
+            <div style="background:#f4f4f5;border:1px solid rgba(0,0,0,.08);
+                border-left:3px solid #2563eb;border-radius:10px;
                 padding:1rem 1.25rem;margin-top:1.5rem;">
               <p style="font-size:.72rem;font-weight:600;letter-spacing:.07em;
-                 text-transform:uppercase;color:var(--blue);margin:0 0 .4rem;">Analysis insight</p>
-              <p style="font-size:.87rem;color:var(--text-2);line-height:1.7;margin:0;">
-                <strong style="color:var(--text)">{best_name}</strong> achieves the highest
+                 text-transform:uppercase;color:#2563eb;margin:0 0 .4rem;">Analysis insight</p>
+              <p style="font-size:.87rem;color:#52525b;line-height:1.7;margin:0;">
+                <strong style="color:#0f0f10">{best_name}</strong> achieves the highest
                 perceptual quality (PSNR&nbsp;{best_metrics['psnr']:.2f}&nbsp;dB,
                 SSIM&nbsp;{best_metrics['ssim']:.3f}). Relative to the LAN baseline,
                 TTA strategies improve {gain_parts}, demonstrating meaningful adaptation gains.
@@ -684,33 +668,33 @@ if run_clicked and uploaded_file is not None:
 # FOOTER
 # ═══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
-<div style="margin-top:4rem;padding-top:2rem;border-top:1px solid var(--border);">
+<div style="margin-top:4rem;padding-top:2rem;border-top:1px solid rgba(0,0,0,.08);">
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:2rem;margin-bottom:2rem;">
     <div>
-      <p style="font-size:.75rem;font-weight:600;color:var(--text);margin:0 0 .5rem;">About</p>
-      <p style="font-size:.78rem;color:var(--text-3);line-height:1.65;margin:0;">
+      <p style="font-size:.75rem;font-weight:600;color:#0f0f10;margin:0 0 .5rem;">About</p>
+      <p style="font-size:.78rem;color:#a1a1aa;line-height:1.65;margin:0;">
         Interactive benchmark comparing test-time adaptation methods for blind image restoration.
         Built as part of a Master's thesis in Computer Vision.
       </p>
     </div>
     <div>
-      <p style="font-size:.75rem;font-weight:600;color:var(--text);margin:0 0 .5rem;">Methods</p>
-      <p style="font-size:.78rem;color:var(--text-3);line-height:1.8;margin:0;">
-        <strong style="color:var(--text-2)">LAN</strong> — Lightweight adaptive network<br>
-        <strong style="color:var(--text-2)">TAO</strong> — Test-time adaptation optimization<br>
-        <strong style="color:var(--text-2)">TTAD</strong> — TTA with diffusion
+      <p style="font-size:.75rem;font-weight:600;color:#0f0f10;margin:0 0 .5rem;">Methods</p>
+      <p style="font-size:.78rem;color:#a1a1aa;line-height:1.8;margin:0;">
+        <strong style="color:#52525b">LAN</strong> — Lightweight adaptive network<br>
+        <strong style="color:#52525b">TAO</strong> — Test-time adaptation optimization<br>
+        <strong style="color:#52525b">TTAD</strong> — TTA with diffusion
       </p>
     </div>
     <div>
-      <p style="font-size:.75rem;font-weight:600;color:var(--text);margin:0 0 .5rem;">Metrics</p>
-      <p style="font-size:.78rem;color:var(--text-3);line-height:1.8;margin:0;">
-        <strong style="color:var(--text-2)">PSNR</strong> — Peak signal-to-noise ratio ↑<br>
-        <strong style="color:var(--text-2)">SSIM</strong> — Structural similarity index ↑<br>
-        <strong style="color:var(--text-2)">LPIPS</strong> — Learned perceptual similarity ↓
+      <p style="font-size:.75rem;font-weight:600;color:#0f0f10;margin:0 0 .5rem;">Metrics</p>
+      <p style="font-size:.78rem;color:#a1a1aa;line-height:1.8;margin:0;">
+        <strong style="color:#52525b">PSNR</strong> — Peak signal-to-noise ratio ↑<br>
+        <strong style="color:#52525b">SSIM</strong> — Structural similarity index ↑<br>
+        <strong style="color:#52525b">LPIPS</strong> — Learned perceptual similarity ↓
       </p>
     </div>
   </div>
-  <p style="font-size:.72rem;color:var(--text-3);text-align:center;margin:0;">
+  <p style="font-size:.72rem;color:#a1a1aa;text-align:center;margin:0;">
     Thesis research · Test-time adaptation image restoration · Built with Streamlit
   </p>
 </div>
