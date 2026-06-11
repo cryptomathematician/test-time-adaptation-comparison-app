@@ -561,113 +561,89 @@ if run_clicked and uploaded_file is not None:
 
 
     # ── Comparison table ──────────────────────────────────────────────────
-    # Streamlit strips `style=""` attributes from arbitrary divs but never
-    # touches <style> tags, so we inject CSS classes in the same markdown call.
+    # st.markdown sanitizes ALL HTML regardless of unsafe_allow_html.
+    # st.components.v1.html() renders inside an iframe — zero sanitization.
+    import streamlit.components.v1 as components
+
     st.markdown('<div class="section-rule" style="margin-top:2rem;"><span>Full comparison</span></div>', unsafe_allow_html=True)
 
     rows_html = ""
     for name in model_names:
         m       = results[name]
         is_best = name == best_name
-        row_cls = "cmp-row cmp-row--best" if is_best else "cmp-row"
+        row_bg  = "#f0f7ff" if is_best else "#ffffff"
+        row_bl  = "2.5px solid #2563eb" if is_best else "2.5px solid transparent"
 
-        best_badge = '<span class="cmp-best-badge">best</span>' if is_best else ""
+        best_badge = (
+            '<span style="font-size:.65rem;font-weight:600;background:#fffbeb;'
+            'border:1px solid #fde68a;color:#b45309;border-radius:999px;'
+            'padding:.1rem .45rem;margin-left:.4rem;">best</span>'
+            if is_best else ""
+        )
 
         psnr_val  = fmt_metric(m["psnr"],  "{:.2f} dB")
         ssim_val  = fmt_metric(m["ssim"],  "{:.3f}")
         lpips_val = fmt_metric(m["lpips"], "{:.3f}")
 
-        psnr_cls  = "cmp-cell cmp-psnr-good" if (m.get("psnr") and m["psnr"] >= 30) else "cmp-cell"
-        lpips_cls = "cmp-cell cmp-lpips-warn" if m.get("lpips") else "cmp-cell"
+        psnr_color  = "#15803d" if (m.get("psnr") and m["psnr"] >= 30) else "#0f0f10"
+        psnr_weight = "500"     if (m.get("psnr") and m["psnr"] >= 30) else "400"
+        lpips_color = "#b45309" if m.get("lpips") else "#0f0f10"
+
+        CELL = ("padding:.6rem 1rem;font-size:.82rem;"
+                "font-family:'JetBrains Mono',monospace;"
+                "border-bottom:1px solid rgba(0,0,0,.08);")
 
         rows_html += f"""
-        <div class="{row_cls}">
-          <div class="cmp-name">{name}&ensp;{best_badge}</div>
-          <div class="{psnr_cls}">{psnr_val}</div>
-          <div class="cmp-cell">{ssim_val}</div>
-          <div class="{lpips_cls}">{lpips_val}</div>
-          <div class="cmp-cell cmp-muted">{m['runtime']:.2f} s</div>
-          <div class="cmp-cell cmp-muted">{m.get('memory_usage', 0):.0f} MB</div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;
+                    align-items:center;background:{row_bg};border-left:{row_bl};">
+          <div style="padding:.65rem 1rem;font-size:.84rem;font-weight:500;color:#0f0f10;
+                      border-bottom:1px solid rgba(0,0,0,.08);display:flex;align-items:center;">
+            {name}{best_badge}
+          </div>
+          <div style="{CELL}color:{psnr_color};font-weight:{psnr_weight};">{psnr_val}</div>
+          <div style="{CELL}color:#0f0f10;">{ssim_val}</div>
+          <div style="{CELL}color:{lpips_color};">{lpips_val}</div>
+          <div style="{CELL}color:#52525b;">{m['runtime']:.2f} s</div>
+          <div style="{CELL}color:#52525b;">{m.get('memory_usage', 0):.0f} MB</div>
         </div>
         """
 
-    st.markdown(f"""
+    HEAD_CELL = ("padding:.45rem 1rem;font-size:.67rem;font-weight:600;"
+                 "letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;")
+
+    table_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-    .cmp-wrap {{
-      background:#ffffff;
-      border:1px solid rgba(0,0,0,.08);
-      border-radius:14px;
-      overflow:hidden;
-      box-shadow:0 1px 2px rgba(0,0,0,.05);
-      font-family:'Inter',system-ui,sans-serif;
-    }}
-    .cmp-header, .cmp-row {{
-      display:grid;
-      grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;
-      align-items:center;
-    }}
-    .cmp-header {{
-      background:#f4f4f5;
-      border-bottom:1px solid rgba(0,0,0,.08);
-    }}
-    .cmp-header > div {{
-      padding:.45rem 1rem;
-      font-size:.67rem;
-      font-weight:600;
-      letter-spacing:.07em;
-      text-transform:uppercase;
-      color:#a1a1aa;
-    }}
-    .cmp-row {{
-      background:#ffffff;
-      border-left:2.5px solid transparent;
-    }}
-    .cmp-row--best {{
-      background:#f0f7ff !important;
-      border-left:2.5px solid #2563eb !important;
-    }}
-    .cmp-name {{
-      padding:.65rem 1rem;
-      font-size:.84rem;
-      font-weight:500;
-      color:#0f0f10;
-      border-bottom:1px solid rgba(0,0,0,.08);
-      display:flex;
-      align-items:center;
-      gap:.35rem;
-    }}
-    .cmp-cell {{
-      padding:.6rem 1rem;
-      font-size:.82rem;
-      font-family:'JetBrains Mono',monospace;
-      color:#0f0f10;
-      border-bottom:1px solid rgba(0,0,0,.08);
-    }}
-    .cmp-muted      {{ color:#52525b !important; }}
-    .cmp-psnr-good  {{ color:#15803d !important; font-weight:500; }}
-    .cmp-lpips-warn {{ color:#b45309 !important; }}
-    .cmp-best-badge {{
-      font-size:.65rem;
-      font-weight:600;
-      background:#fffbeb;
-      border:1px solid #fde68a;
-      color:#b45309;
-      border-radius:999px;
-      padding:.1rem .45rem;
-    }}
+      * {{ box-sizing:border-box; margin:0; padding:0; }}
+      body {{ background:transparent; font-family:'Inter',system-ui,sans-serif; }}
     </style>
-    <div class="cmp-wrap">
-      <div class="cmp-header">
-        <div>Method</div>
-        <div>PSNR ↑</div>
-        <div>SSIM ↑</div>
-        <div>LPIPS ↓</div>
-        <div>Runtime</div>
-        <div>Memory</div>
+    </head>
+    <body>
+    <div style="background:#ffffff;border:1px solid rgba(0,0,0,.08);
+                border-radius:14px;overflow:hidden;
+                box-shadow:0 1px 2px rgba(0,0,0,.05);">
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;
+                  align-items:center;background:#f4f4f5;
+                  border-bottom:1px solid rgba(0,0,0,.08);">
+        <div style="{HEAD_CELL}">Method</div>
+        <div style="{HEAD_CELL}">PSNR ↑</div>
+        <div style="{HEAD_CELL}">SSIM ↑</div>
+        <div style="{HEAD_CELL}">LPIPS ↓</div>
+        <div style="{HEAD_CELL}">Runtime</div>
+        <div style="{HEAD_CELL}">Memory</div>
       </div>
       {rows_html}
     </div>
-    """, unsafe_allow_html=True)
+    </body>
+    </html>
+    """
+
+    # height = header row (~38px) + 3 data rows (~46px each) + border
+    components.html(table_html, height=185, scrolling=False)
 
 
     # ── Insight block ─────────────────────────────────────────────────────
