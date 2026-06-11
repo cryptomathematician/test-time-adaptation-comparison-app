@@ -68,7 +68,14 @@ class TTADWrapper:
 
         old_cwd = os.getcwd()
         try:
+            # Change to TTAD directory for imports to work
             os.chdir(TTAD_REPO_PATH)
+            
+            # Add to path to ensure arch_unet can be imported
+            if TTAD_REPO_PATH not in sys.path:
+                sys.path.insert(0, TTAD_REPO_PATH)
+            
+            # Import the UNet class
             from arch_unet import UNet
 
             checkpoint_path = os.path.join(TTAD_REPO_PATH, "epoch_model_100.pth")
