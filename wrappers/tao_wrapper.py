@@ -7,12 +7,62 @@ import numpy as np
 from PIL import Image
 from typing import Dict, Any
 
+# Try to import psutil for memory tracking
+try:
+    import psutil
+    _HAS_PSUTIL = True
+except Exception:
+    _HAS_PSUTIL = False
+
 TAO_REPO_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "models", "2024-ICML-TAO"
 )
 if TAO_REPO_PATH not in sys.path:
     sys.path.insert(0, TAO_REPO_PATH)
+
+
+def _get_process_memory_mb() -> float:
+    """Get current process memory usage in MB using multiple methods."""
+    # Method 1: psutil (cross-platform, most reliable)
+    if _HAS_PSUTIL:
+        try:
+            process = psutil.Process(os.getpid())
+            rss = process.memory_info().rss
+            if rss > 0:
+                return rss / (1024 * 1024)
+        except Exception:
+            pass
+
+    # Method 2: Windows WMIC
+    try:
+        pid = os.getpid()
+        with os.popen(f'wmic PROCESS WHERE ProcessId={pid} GET WorkingSetSize /VALUE') as f:
+            output = f.read()
+        for line in output.splitlines():
+            line = line.strip()
+            if 'WorkingSetSize' in line and '=' in line:
+                val = int(line.split('=')[1])
+                if val > 0:
+                    return val / (1024 * 1024)
+    except Exception:
+        pass
+
+    # Method 3: Windows tasklist
+    try:
+        pid = os.getpid()
+        with os.popen(f'tasklist /FI "PID eq {pid}" /FO CSV /NH') as f:
+            output = f.read()
+        parts = output.replace('"', '').split(',')
+        if len(parts) >= 5:
+            mem_str = parts[4].strip().replace(',', '').replace(' K', '').strip()
+            return float(mem_str) / 1024
+    except Exception:
+        pass
+
+    if torch.cuda.is_available():
+        return torch.cuda.memory_allocated() / (1024 ** 2)
+    return 0.0
 
 
 class TAOWrapper:
@@ -167,11 +217,7 @@ class TAOWrapper:
             sample = sample.permute(0, 2, 3, 1).contiguous().cpu().numpy()
 
             runtime = time.time() - start_time
-
-            memory_usage = 0.0
-            if torch.cuda.is_available():
-                torch.cuda.synchronize()
-                memory_usage = torch.cuda.max_memory_allocated(self.device) / (1024 ** 2)
+            memory_usage = _get_process_memory_mb()
 
             restored_pil = Image.fromarray(sample[0]).resize(orig_size, Image.LANCZOS)
 
@@ -182,4 +228,4 @@ class TAOWrapper:
             pil_image = Image.open(image_path).convert("RGB")
             runtime = time.time() - start_time
             print(f"[TAO] Inference error (returning input): {e}")
-            return {"output_image": pil_image, "runtime": runtime, "memory_usage": 0.0}
+            return {"output_image": pil_image, "runtime": runtime, "memory_usage": _get_process_memory_mb()}

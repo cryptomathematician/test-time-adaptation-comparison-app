@@ -7,6 +7,13 @@ import numpy as np
 from PIL import Image
 from typing import Dict, Any
 
+# Try to import psutil for memory tracking
+try:
+    import psutil
+    _HAS_PSUTIL = True
+except Exception:
+    _HAS_PSUTIL = False
+
 # Add LAN model path to allow imports from the original repo
 LAN_REPO_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -39,6 +46,51 @@ def _pad_to_multiple(img_tensor: torch.Tensor, multiple: int = 2) -> tuple:
 def _unpad(tensor: torch.Tensor, orig_h: int, orig_w: int) -> torch.Tensor:
     """Crop back to original dimensions after _pad_to_multiple."""
     return tensor[:, :, :orig_h, :orig_w]
+
+
+def _get_process_memory_mb() -> float:
+    """Get current process memory usage in MB using multiple methods."""
+    # Method 1: psutil (cross-platform, most reliable)
+    if _HAS_PSUTIL:
+        try:
+            process = psutil.Process(os.getpid())
+            rss = process.memory_info().rss
+            if rss > 0:
+                return rss / (1024 * 1024)
+        except Exception:
+            pass
+
+    # Method 2: Windows WMIC (reliable on native Windows)
+    try:
+        pid = os.getpid()
+        with os.popen(f'wmic PROCESS WHERE ProcessId={pid} GET WorkingSetSize /VALUE') as f:
+            output = f.read()
+        for line in output.splitlines():
+            line = line.strip()
+            if 'WorkingSetSize' in line and '=' in line:
+                val = int(line.split('=')[1])
+                if val > 0:
+                    return val / (1024 * 1024)
+    except Exception:
+        pass
+
+    # Method 3: Windows tasklist (fallback)
+    try:
+        pid = os.getpid()
+        with os.popen(f'tasklist /FI "PID eq {pid}" /FO CSV /NH') as f:
+            output = f.read()
+        parts = output.replace('"', '').split(',')
+        if len(parts) >= 5:
+            mem_str = parts[4].strip().replace(',', '').replace(' K', '').strip()
+            return float(mem_str) / 1024
+    except Exception:
+        pass
+
+    # Method 4: torch CUDA (if available)
+    if torch.cuda.is_available():
+        return torch.cuda.memory_allocated() / (1024 ** 2)
+
+    return 0.0
 
 
 class LANWrapper:
@@ -109,11 +161,7 @@ class LANWrapper:
             restored = _unpad(restored, orig_h, orig_w)
 
             runtime = time.time() - start_time
-
-            memory_usage = 0.0
-            if torch.cuda.is_available():
-                torch.cuda.synchronize()
-                memory_usage = torch.cuda.max_memory_allocated(self.device) / (1024 ** 2)
+            memory_usage = _get_process_memory_mb()
 
             restored_np = restored.squeeze(0).permute(1, 2, 0).cpu().numpy()
             restored_np = (restored_np * 255).clip(0, 255).astype(np.uint8)
@@ -126,4 +174,4 @@ class LANWrapper:
             pil_image = Image.open(image_path).convert("RGB")
             runtime = time.time() - start_time
             print(f"[LAN] Inference error (returning input): {e}")
-            return {"output_image": pil_image, "runtime": runtime, "memory_usage": 0.0}
+            return {"output_image": pil_image, "runtime": runtime, "memory_usage": _get_process_memory_mb()}

@@ -415,7 +415,7 @@ if run_clicked and uploaded_file is not None:
                 res_np  = np.array(restored_img).astype(np.uint8)
                 try:
                     c = compute_metrics(res_np, gt_np)
-                    metrics.update(psnr=c["psnr"], ssim=c["ssim"], lpips=c["lpips"])
+                    metrics.update({"psnr": c["psnr"], "ssim": c["ssim"], "lpips": c["lpips"]})
                 except Exception as e:
                     st.warning(f"Metrics failed for {name}: {e}")
 
