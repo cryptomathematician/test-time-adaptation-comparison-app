@@ -560,14 +560,30 @@ if run_clicked and uploaded_file is not None:
             """, unsafe_allow_html=True)
 
 
-    # ── Comparison table ─────────────────────────────────────────────────
+    # ── Comparison table (div-grid — avoids Streamlit's <table>/<tr>/<td> sanitizer) ──
     st.markdown('<div class="section-rule" style="margin-top:2rem;"><span>Full comparison</span></div>', unsafe_allow_html=True)
+
+    # Column widths: method=2fr, psnr/ssim/lpips/runtime/memory=1fr each
+    GRID = "display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;align-items:center;"
+    CELL = "padding:.6rem 1rem;font-size:.82rem;font-family:'JetBrains Mono',monospace;border-bottom:1px solid rgba(0,0,0,.08);"
+    HEAD = "padding:.45rem 1rem;font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;"
+
+    header_html = f"""
+    <div style="{GRID}background:#f4f4f5;border-bottom:1px solid rgba(0,0,0,.08);">
+      <div style="{HEAD}">Method</div>
+      <div style="{HEAD}">PSNR ↑</div>
+      <div style="{HEAD}">SSIM ↑</div>
+      <div style="{HEAD}">LPIPS ↓</div>
+      <div style="{HEAD}">Runtime</div>
+      <div style="{HEAD}">Memory</div>
+    </div>
+    """
 
     rows_html = ""
     for name in model_names:
         m       = results[name]
         is_best = name == best_name
-        row_bg  = "background:#f0f7ff;" if is_best else ""
+        row_bg  = "background:#f0f7ff;" if is_best else "background:#ffffff;"
         bl      = "border-left:2.5px solid #2563eb;" if is_best else "border-left:2.5px solid transparent;"
 
         best_badge = (
@@ -581,56 +597,25 @@ if run_clicked and uploaded_file is not None:
         ssim_val  = fmt_metric(m["ssim"],  "{:.3f}")
         lpips_val = fmt_metric(m["lpips"], "{:.3f}")
 
-        psnr_c  = "color:#15803d;font-weight:500;" if m.get("psnr") and m["psnr"] >= 30 else ""
-        lpips_c = "color:#b45309;" if m.get("lpips") else ""
+        psnr_c  = "color:#15803d;font-weight:500;" if m.get("psnr") and m["psnr"] >= 30 else "color:#0f0f10;"
+        lpips_c = "color:#b45309;" if m.get("lpips") else "color:#0f0f10;"
 
         rows_html += f"""
-        <tr style="{row_bg}{bl}">
-          <td style="padding:.65rem 1rem;font-size:.84rem;font-weight:500;color:#0f0f10;
-              border-bottom:1px solid rgba(0,0,0,.08);">{name}{best_badge}</td>
-          <td style="padding:.65rem 1rem;font-size:.82rem;font-family:'JetBrains Mono',monospace;
-              {psnr_c}border-bottom:1px solid rgba(0,0,0,.08);">{psnr_val}</td>
-          <td style="padding:.65rem 1rem;font-size:.82rem;font-family:'JetBrains Mono',monospace;
-              border-bottom:1px solid rgba(0,0,0,.08);">{ssim_val}</td>
-          <td style="padding:.65rem 1rem;font-size:.82rem;font-family:'JetBrains Mono',monospace;
-              {lpips_c}border-bottom:1px solid rgba(0,0,0,.08);">{lpips_val}</td>
-          <td style="padding:.65rem 1rem;font-size:.82rem;font-family:'JetBrains Mono',monospace;
-              color:#52525b;border-bottom:1px solid rgba(0,0,0,.08);">{m['runtime']:.2f} s</td>
-          <td style="padding:.65rem 1rem;font-size:.82rem;font-family:'JetBrains Mono',monospace;
-              color:#52525b;border-bottom:1px solid rgba(0,0,0,.08);">{m.get('memory_usage',0):.0f} MB</td>
-        </tr>
+        <div style="{GRID}{row_bg}{bl}">
+          <div style="padding:.65rem 1rem;font-size:.84rem;font-weight:500;color:#0f0f10;border-bottom:1px solid rgba(0,0,0,.08);">{name}{best_badge}</div>
+          <div style="{CELL}{psnr_c}">{psnr_val}</div>
+          <div style="{CELL}color:#0f0f10;">{ssim_val}</div>
+          <div style="{CELL}{lpips_c}">{lpips_val}</div>
+          <div style="{CELL}color:#52525b;">{m['runtime']:.2f} s</div>
+          <div style="{CELL}color:#52525b;">{m.get('memory_usage', 0):.0f} MB</div>
+        </div>
         """
 
     st.markdown(f"""
     <div style="background:#ffffff;border:1px solid rgba(0,0,0,.08);
         border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05);">
-      <table style="width:100%;border-collapse:collapse;">
-        <thead>
-          <tr style="background:#f4f4f5;">
-            <th style="padding:.5rem 1rem;text-align:left;font-size:.68rem;font-weight:600;
-                letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;
-                border-bottom:1px solid rgba(0,0,0,.08);">Method</th>
-            <th style="padding:.5rem 1rem;text-align:left;font-size:.68rem;font-weight:600;
-                letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;
-                border-bottom:1px solid rgba(0,0,0,.08);">PSNR ↑</th>
-            <th style="padding:.5rem 1rem;text-align:left;font-size:.68rem;font-weight:600;
-                letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;
-                border-bottom:1px solid rgba(0,0,0,.08);">SSIM ↑</th>
-            <th style="padding:.5rem 1rem;text-align:left;font-size:.68rem;font-weight:600;
-                letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;
-                border-bottom:1px solid rgba(0,0,0,.08);">LPIPS ↓</th>
-            <th style="padding:.5rem 1rem;text-align:left;font-size:.68rem;font-weight:600;
-                letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;
-                border-bottom:1px solid rgba(0,0,0,.08);">Runtime</th>
-            <th style="padding:.5rem 1rem;text-align:left;font-size:.68rem;font-weight:600;
-                letter-spacing:.07em;text-transform:uppercase;color:#a1a1aa;
-                border-bottom:1px solid rgba(0,0,0,.08);">Memory</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows_html}
-        </tbody>
-      </table>
+      {header_html}
+      {rows_html}
     </div>
     """, unsafe_allow_html=True)
 
