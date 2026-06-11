@@ -98,7 +98,8 @@ class LANWrapper:
             ).permute(2, 0, 1).unsqueeze(0).to(self.device)
 
             # Pad to even dimensions (Restormer uses pixel_unshuffle with stride 2)
-            img_padded, (orig_h, orig_w) = _pad_to_multiple(img_tensor, multiple=2)
+            # Use multiple of 8 for better compatibility with model architecture
+            img_padded, (orig_h, orig_w) = _pad_to_multiple(img_tensor, multiple=8)
 
             # ── Run simple inference without adaptation to avoid crashes ────────
             with torch.no_grad():

@@ -67,6 +67,8 @@ class TAOWrapper:
                 num_res_blocks=2,
                 num_heads=4,
                 num_heads_upsample=-1,
+                num_head_channels=-1,
+                channel_mult="",
                 attention_resolutions="32,16,8",
                 dropout=0.0,
                 class_cond=False,
